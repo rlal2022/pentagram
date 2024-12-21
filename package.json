@@ -10,6 +10,9 @@
     "format:fix": "prettier --write \"**/*.{js,jsx,ts,tsx,json,md}\""
   },
   "dependencies": {
+    "@emotion/react": "^11.14.0",
+    "@emotion/styled": "^11.14.0",
+    "@mui/material": "^6.2.1",
     "next": "15.1.0",
     "prettier": "^3.4.2",
     "react": "^19.0.0",

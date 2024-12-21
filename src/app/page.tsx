@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Gallery from "./components/Gallery";
 
 export default function Home() {
   const [inputText, setInputText] = useState("");
@@ -31,9 +32,11 @@ export default function Home() {
 
   return (
     // TODO: Update the UI here to show the images generated
-    
+
     <div className="min-h-screen flex flex-col justify-between p-8">
-      <main className="flex-1">{/* Main content can go here */}</main>
+      <main className="flex-1">
+        <Gallery />
+      </main>
 
       <footer className="w-full max-w-3xl mx-auto">
         <form onSubmit={handleSubmit} className="w-full">
