@@ -47,7 +47,7 @@ export default function Home() {
     // TODO: Update the UI here to show the images generated
 
     <div className="min-h-screen flex flex-col justify-between p-8">
-      <main className="flex-1">
+      <main className="flex-1 flex flex-col items-center gap-8">
         {/* <Gallery /> */}
 
         {imageUrl && (

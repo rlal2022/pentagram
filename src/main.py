@@ -23,11 +23,15 @@ app = modal.App("flux-demo", image=image)
 
 @app.cls(
     gpu="A10G",
-    secrets=[modal.Secret.from_name("API_KEY")],
+    secrets=[modal.Secret.from_name("API_KEY")]  # Add the secret here
 )
 class Model:
-    def __enter__(self):
-        """Load the weights of the model during initialization."""
+    def __init__(self):
+        self.pipe = None
+
+    @modal.enter()
+    def initialize(self):
+        """Initialize the model during startup."""
         from diffusers import FluxPipeline
         import torch
 
@@ -36,7 +40,6 @@ class Model:
             torch_dtype=torch.bfloat16
         )
         self.pipe.to("cuda")
-        self.API_KEY = os.environ["API_KEY"]
 
     @modal.method()
     def generate_image(self, prompt: str):
@@ -51,9 +54,10 @@ class Model:
         image.save(buffer, format="JPEG")
         return buffer.getvalue()
 
+# Initialize the model
 model = Model()
 
-@app.function()
+@app.function(secrets=[modal.Secret.from_name("API_KEY")])  # Add the secret here
 @modal.web_endpoint()
 async def generate(
     request: Request,
@@ -61,14 +65,22 @@ async def generate(
 ):
     """Generate an image based on the prompt."""
     api_key = request.headers.get("X-API-Key")
-    if api_key != model.API_KEY:
+    expected_api_key = os.environ["API_KEY"]  # Get the API key from environment
+    
+    if api_key != expected_api_key:
         raise HTTPException(
             status_code=401,
             detail="Unauthorized",
         )
 
-    image_bytes = model.generate_image.remote(prompt)
-    return Response(content=image_bytes, media_type="image/jpeg")
+    try:
+        image_bytes = model.generate_image.remote(prompt)
+        return Response(content=image_bytes, media_type="image/jpeg")
+    except Exception as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Error generating image: {str(e)}"
+        )
 
 @app.function()
 @modal.web_endpoint()
@@ -81,7 +93,7 @@ async def health():
 
 @app.function(
     schedule=modal.Cron("*/5 * * * *"),
-    secrets=[modal.Secret.from_name("API_KEY")]
+    secrets=[modal.Secret.from_name("API_KEY")]  # Add the secret here
 )
 def keep_warm():
     """Function to keep the app warm by periodically pinging the endpoints."""
@@ -97,7 +109,7 @@ def keep_warm():
 
     # Test generate endpoint
     try:
-        headers = {"X-API-Key": os.environ["API_KEY"]}
+        headers = {"X-API-Key": os.environ["API_KEY"]}  # Get the API key from environment
         generate_response = requests.get(generate_url, headers=headers)
         print(f"Generate endpoint tested at: {datetime.now(timezone.utc).isoformat()}")
     except Exception as e:
