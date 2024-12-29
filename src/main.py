@@ -120,8 +120,8 @@ class Model:
 )
 def keep_warm():
     import requests
-    health_url = "https://pentagram-app--flux-demo-model-health.modal.run "
-    generate_url = "https://pentagram-app--flux-demo-model-generate.modal.run
+    health_url = "https://pentagram-app--flux-demo-model-health.modal.run"
+    generate_url = "https://pentagram-app--flux-demo-model-generate.modal.run"
     health_response = requests.get(health_url)
     print(f"Health check at: {health_response.json()['timestamp']}")
 
