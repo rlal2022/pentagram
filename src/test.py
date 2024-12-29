@@ -4,28 +4,33 @@ from datetime import datetime, timezone
 import os
 import modal
 
-# Set environment variable for better memory management
-os.environ["PYTORCH_CUDA_ALLOC_CONF"] = "expandable_segments:True"
-
 def download_model():
-    from diffusers import FluxPipeline
+    from diffusers import DiffusionPipeline
     import torch
 
     hf_token = os.environ["HUGGINGFACE_TOKEN"]
 
-    FluxPipeline.from_pretrained(
+    DiffusionPipeline.from_pretrained(
         "black-forest-labs/FLUX.1-schnell",
-        torch_dtype=torch.float16,  # Use half-precision
+        torch_dtype=torch.bfloat16,
         use_auth_token=hf_token,
         trust_remote_code=True
     )
 
 image = (
+    # Use Python 3.12 as specified
     modal.Image.debian_slim(python_version="3.12")
+    # Upgrade pip to ensure compatibility with the latest packages
     .run_commands("python -m pip install --upgrade pip")
+    # Install PyTorch and TorchVision with CUDA 11.8 support
     .pip_install(
-        "torch",
-        "torchvision",
+        "torch==2.5.1+cu118",
+        "torchvision==0.16.2+cu118",
+        index_url="https://download.pytorch.org/whl/cu118",
+        extra_index_url="https://pypi.org/simple"
+    )
+    # Install other dependencies
+    .pip_install(
         "fastapi[standard]",
         "transformers",
         "accelerate",
@@ -37,9 +42,7 @@ image = (
         "omegaconf",
         "pillow",
         "xformers",
-        "triton",
-        index_url="https://download.pytorch.org/whl/cu118",
-        extra_index_url="https://pypi.org/simple"
+        "triton"
     )
     .run_function(
         download_model,
@@ -51,7 +54,7 @@ app = modal.App("flux-demo", image=image)
 
 @app.cls(
     image=image,
-    gpu="A100",  # Specify the A100 GPU
+    gpu="A10G",
     secrets=[
         modal.Secret.from_name("API_KEY"),
         modal.Secret.from_name("huggingface-secret")
@@ -62,18 +65,17 @@ class Model:
     @modal.build()
     @modal.enter()
     def load_weights(self):
-        from diffusers import FluxPipeline
+        from diffusers import DiffusionPipeline
         import torch
 
         hf_token = os.environ["HUGGINGFACE_TOKEN"]
 
-        # Load the model and move it to the GPU
-        self.pipe = FluxPipeline.from_pretrained(
+        self.pipe = DiffusionPipeline.from_pretrained(
             "black-forest-labs/FLUX.1-schnell",
-            torch_dtype=torch.float16,  # Use half-precision
+            torch_dtype=torch.bfloat16,
             use_auth_token=hf_token,
             trust_remote_code=True
-        ).to("cuda")  # Move the model to GPU
+        ).to("cuda")
 
         self.pipe.enable_model_cpu_offload()
 
@@ -111,6 +113,7 @@ class Model:
         """Lightweight endpoint for keeping the container warm"""
         return {"status": "healthy", "timestamp": datetime.now(timezone.utc).isoformat()}
 
+# Warm-keeping function that runs every 5 minutes
 @app.function(
     schedule=modal.Cron("*/5 * * * *"),
     secrets=[
@@ -120,11 +123,14 @@ class Model:
 )
 def keep_warm():
     import requests
-    health_url = "https://pentagram-app--flux-demo-model-health.modal.run "
-    generate_url = "https://pentagram-app--flux-demo-model-generate.modal.run
+    health_url = "https://your-health-endpoint-url"
+    generate_url = "https://your-generate-endpoint-url"
+
+    # First check health endpoint (no API key needed)
     health_response = requests.get(health_url)
     print(f"Health check at: {health_response.json()['timestamp']}")
 
+    # Then make a test request to generate endpoint with API key
     headers = {"X-API-Key": os.environ["API_KEY"]}
     params = {"prompt": "Test prompt"}
     generate_response = requests.get(generate_url, headers=headers, params=params)
