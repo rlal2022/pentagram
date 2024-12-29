@@ -10,12 +10,12 @@ export async function POST(request: Request) {
     const apiKey = request.headers.get("X-API-KEY");
     console.log("Received API KEY:", apiKey); // Debugging log
 
-    if (apiKey !== process.env.API_KEY) {
+    if (apiKey !== process.env.NEXT_API_KEY) {
       console.log("Unauthorized: Keys do not match"); // Debugging log
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const modalUrl = process.env.MODAL_URL;
+    const modalUrl = process.env.NEXT_MODAL_URL;
     if (!modalUrl) {
       console.log("Modal URL is not defined"); // Debugging log
       return NextResponse.json(
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     const response = await fetch(url.toString(), {
       method: "GET",
       headers: {
-        "X-API-Key": process.env.API_KEY || "",
+        "X-API-Key": process.env.NEXT_API_KEY || "",
         Accept: "image/jpeg",
       },
     });
